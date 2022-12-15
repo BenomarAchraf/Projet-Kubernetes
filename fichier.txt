@@ -1,0 +1,201 @@
+env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: Mongodb-Secret
+              key: username
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: Mongodb-Secret
+              key: password
+
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: Mongodb-ConfigMap
+  namespace: exam
+data:
+  databaseurl: Mongodb-Service
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: Mongodb-Secret
+  namespace: exam
+type: Opaque
+data:
+  username: YWNocmFm
+  password: Q0Y3RkY4MUU3Rg==
+
+---
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mongodbvolume
+  namespace: exam
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 2Gi
+  accessModes:
+   - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data"
+
+---
+
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodbvolumeclaim
+  namespace: exam
+  labels:
+        app: mongodb
+spec:
+  storageClassName: manual
+  accessModes:
+   - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+
+
+      *-----
+
+      apiVersion: v1
+kind: Service
+metadata:
+  name: mongodbservice
+  namespace: exam
+spec:
+  selector:
+    app: mongodb
+  ports:
+  - port: 27017
+    targetPort: 27017
+
+---
+
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: task-pv-volume
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 2Gi
+  accessModes:
+  - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data"
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: task-pv-claim
+  namespace: exam
+  labels:
+    app: mongodb
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodbdeployment
+  namespace: exam
+  labels:
+        app: mongodb
+spec:
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+      - name: mongodb
+        image: localhost:5001/mongo
+        volumeMounts:
+        - mountPath: "/usr/share/nginx/html"
+          name: task-pv-storage
+        ports:
+        - containerPort: 27017
+      volumes:
+      - name: task-pv-storage
+        persistentVolumeClaim:
+          claimName: task-pv-claim
+
+---
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: exam
+spec:
+  selector:
+    app: frontend
+  type: LoadBalancer 
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 30000
+
+
+
+---
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+  namespace: exam
+  labels:
+    app: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        resources: {}
+        image: achr4f/projet-docker:front-app
+        ports:
+          - containerPort: 80
+        
+
